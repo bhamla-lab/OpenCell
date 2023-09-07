@@ -1,7 +1,7 @@
 //OPENCELL NO PID CODE
 //BhamlaLab - Georgia Institute of Technology
 //Aryan Gupta
-
+//USING CODE ADAPTED FROM https://www.youtube.com/watch?v=u2uJMJWsfsg
 /*
   This verion of the code is reccomended for beginner programmers. The run speed must be set manually during operation.
   For those with experience Tuning PID's, see the PID Verison of this Code
