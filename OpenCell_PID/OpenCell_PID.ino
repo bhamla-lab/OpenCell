@@ -2,6 +2,7 @@
 //BhamlaLab - Georgia Institute of Technology
 //Aryan Gupta
 
+//USING CODE ADAPTED FROM https://www.youtube.com/watch?v=u2uJMJWsfsg
 /*
   This verion of the code is reccomended for experienced programmers. A PID allows for accurate and precise control.
   A PID must be tuned and improper implementation can lead to instability, component damage, and overheating.
