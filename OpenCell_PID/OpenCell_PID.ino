@@ -132,27 +132,11 @@ int setTime() {
   lcd.setCursor(1, 1);
 }
 
-int confirmTime(int checkTime) {
-  lcd.clear();
-  lcd.setCursor(2, 0);
-  lcd.print("Confirm Time");
-  lcd.setCursor(1, 1);
-  lcd.print(checkTime);
-}
-
 int setSpeed() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("Set Speed");
   lcd.setCursor(1, 1);
-}
-
-int confirmSpeed(int checkSpeed) {
-  lcd.clear();
-  lcd.setCursor(2, 0);
-  lcd.print("Confirm Speed");
-  lcd.setCursor(1, 1);
-  lcd.print(checkSpeed);
 }
 
 
@@ -236,8 +220,6 @@ int homogenize() {
     }
   }
   delay(1000);
-  confirmTime(runTime);
-  while(digitalRead(rightBtn) ==1){}
 
   //SET RUN SPEED
   delay(1000);
@@ -255,8 +237,7 @@ int homogenize() {
     }
   }
   delay(1000);
-  confirmTime(runTime);
-  while(digitalRead(rightBtn) ==1){}
+
 
   //RUN HOMOGENIZER
   runHomogenizer(runTime, runSpeed);
