@@ -12,9 +12,10 @@
 #include <LiquidCrystal_I2C.h>
 #define rightBtn 5
 #define leftBtn 4
-#define dial 6
+#define dial A3
 #define tach 2
 #define motor 3
+#define lidSensor 6
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo esc;
@@ -126,15 +127,12 @@ int setTime() {
   lcd.setCursor(1, 1);
 }
 
-int confirmTime(int checkTime) {
+int setSpeed() {
   lcd.clear();
-  lcd.setCursor(2, 0);
-  lcd.print("Confrim Time");
+  lcd.setCursor(4, 0);
+  lcd.print("Set Speed");
   lcd.setCursor(1, 1);
-  lcd.print(checkTime);
 }
-
-
 
 
 int runHomogenizer(float duration) {
@@ -147,14 +145,24 @@ int runHomogenizer(float duration) {
   long endTime = startTime + msTime;
   int timeElapsed = 0;
   int printTime = 0;
+  float outputValue = 0;
   while (millis() < endTime) {
-    if(digitalRead(5) == 0) endTime = 0; 
-    potValue = analogRead(A3);
-    potValue = map(potValue, 0, 1023, 1000, 2000);
-    if(digitalRead(6) < 1) esc.write(potValue );
-    else esc.writeMicroseconds(0);
+    if((digitalRead(rightBtn) == 0) || (digitalRead(leftBtn) == 0)){
+      esc.writeMicroseconds(0);
+      endTime = 0; 
+    }
+    if(digitalRead(lidSensor) < 1) {
+      esc.write(outputValue);
+    }
+    else{
+       esc.writeMicroseconds(0);
+       endTime = 0;
+    }
+    outputValue = analogRead(A3);
+    outputValue = map(potValue, 0, 1023, 1000, 2000);
+
     printTime = (endTime - millis()) / 1000;
-    updateLCD(potValue, printTime);
+    updateLCD(outputValue, printTime);
     checkSpeed();
   }
   esc.write(0);
@@ -171,8 +179,10 @@ int runHomogenizer(float duration) {
 int homogenize() {
   int  pwmOut = 0;
   bool timeSet = false;
-  bool timeConfirm = false;
+  bool speedSet = false;
   float runTime;
+  float runSpeed;
+  
   lcd.begin();
   lcd.backlight();
   lcd.setCursor(1, 0);
@@ -194,11 +204,8 @@ int homogenize() {
     }
   }
   delay(1000);
-  //  confirmTime(runTime);
-  //  while(rightButton ==1){
-  //    rightButton = digitalRead(4);
-  //    leftButton = digitalRead(5);
-  //  }
+  confirmTime(runTime);
+  while(digitalRead(rightBtn) ==1){}
 
   //RUN HOMOGENIZER
   runHomogenizer(runTime);
@@ -264,3 +271,4 @@ void Pulse_Event()  // The interrupt runs this to calculate the period between p
   }
 
 }
+
