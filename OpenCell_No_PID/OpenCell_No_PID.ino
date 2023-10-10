@@ -55,13 +55,13 @@ void setup()  // Start of setup:
   pinMode(rightBtn, INPUT_PULLUP);
   pinMode(leftBtn, INPUT_PULLUP);
   pinMode(dial, INPUT);
-  Serial.begin(9600);
+  Serial.begin(115200);
   attachInterrupt(digitalPinToInterrupt(tach), Pulse_Event, FALLING);
-
-  lcd.begin();
+  lcd.init();
   lcd.backlight();
   lcd.clear();
-  esc.attach(motor, 1000, 2000); 
+  // esc.attach(motor, 1000, 2000); 
+  esc.attach(motor);
   esc.write(30);
   delay(1000); 
 
@@ -147,23 +147,22 @@ int runHomogenizer(float duration) {
   int printTime = 0;
   float outputValue = 0;
   while (millis() < endTime) {
-    if((digitalRead(rightBtn) == 0) || (digitalRead(leftBtn) == 0)){
-      esc.writeMicroseconds(0);
-      endTime = 0; 
-    }
     if(digitalRead(lidSensor) < 1) {
+      potValue = analogRead(dial);
+      outputValue = map(potValue, 0, 1023, 1000, 2000);
       esc.write(outputValue);
+      printTime = (endTime - millis()) / 1000;
+      updateLCD(outputValue, printTime);
+      checkSpeed();
+      if((digitalRead(rightBtn) == 0) || (digitalRead(leftBtn) == 0)) {
+        esc.writeMicroseconds(0);
+        endTime = 0; 
+      }
     }
-    else{
-       esc.writeMicroseconds(0);
-       endTime = 0;
+    else {
+      esc.writeMicroseconds(0);
+      endTime = 0;
     }
-    outputValue = analogRead(A3);
-    outputValue = map(potValue, 0, 1023, 1000, 2000);
-
-    printTime = (endTime - millis()) / 1000;
-    updateLCD(outputValue, printTime);
-    checkSpeed();
   }
   esc.write(0);
   lcd.clear();
@@ -173,7 +172,6 @@ int runHomogenizer(float duration) {
   lcd.print("Finished");
   delay(1000);
 }
-
 
 
 int homogenize() {
@@ -193,7 +191,7 @@ int homogenize() {
   setTime();
   delay(1000);
   while (timeSet == false) {
-    potValue = analogRead(A3);
+    potValue = analogRead(dial);
     potValue = map(potValue,0,1023, 0, 80);
     float timer = potValue / 4.00;
     lcd.setCursor(5, 1);
@@ -214,61 +212,52 @@ int homogenize() {
 void checkSpeed() {
   LastTimeCycleMeasure = LastTimeWeMeasured;
   CurrentMicros = micros();
-  if (CurrentMicros < LastTimeCycleMeasure)
-  {
+  if (CurrentMicros < LastTimeCycleMeasure) {
     LastTimeCycleMeasure = CurrentMicros;
   }
-
   FrequencyRaw = 10000000000 / PeriodAverage;
-
-  if (PeriodBetweenPulses > ZeroTimeout - ZeroDebouncingExtra || CurrentMicros - LastTimeCycleMeasure > ZeroTimeout - ZeroDebouncingExtra)
-  {
+  if (PeriodBetweenPulses > ZeroTimeout - ZeroDebouncingExtra || CurrentMicros - LastTimeCycleMeasure > ZeroTimeout - ZeroDebouncingExtra) {
     FrequencyRaw = 0;
     ZeroDebouncingExtra = 2000;
   }
-  else
-  {
+  else {
     ZeroDebouncingExtra = 0;
   }
-
   FrequencyReal = FrequencyRaw / 10000;
   RPM = FrequencyRaw / PulsesPerRevolution * 60;
   RPM = RPM / 10000; 
-
-
   total = total - readings[readIndex];
   readings[readIndex] = RPM;
   total = total + readings[readIndex];
   readIndex = readIndex + 1;
-
   if (readIndex >= numReadings) readIndex = 0;
-
   // Calculate the average:
   average = total / numReadings;
-
 }
 
-
-void Pulse_Event()  // The interrupt runs this to calculate the period between pulses:
-{
+void Pulse_Event() { // The interrupt runs this to calculate the period between pulses:
   PeriodBetweenPulses = micros() - LastTimeWeMeasured; 
   LastTimeWeMeasured = micros();
-
-  if (PulseCounter >= AmountOfReadings)
-  {
+  if (PulseCounter >= AmountOfReadings) {
     PeriodAverage = PeriodSum / AmountOfReadings;
     PulseCounter = 1;
     PeriodSum = PeriodBetweenPulses;
-
     int RemapedAmountOfReadings = map(PeriodBetweenPulses, 40000, 5000, 1, 10);
     RemapedAmountOfReadings = constrain(RemapedAmountOfReadings, 1, 10);
     AmountOfReadings = RemapedAmountOfReadings;
   }
-  else
-  {
+  else {
     PulseCounter++;
     PeriodSum = PeriodSum + PeriodBetweenPulses;
   }
+}
 
+
+void confirmTime(float checkTime) {
+  lcd.clear();
+  lcd.setCursor(2, 0);
+  lcd.print("Confirm Time");
+  lcd.setCursor(5, 1);
+  lcd.print(checkTime);
 }
 
