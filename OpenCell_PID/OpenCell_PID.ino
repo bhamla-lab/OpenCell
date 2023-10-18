@@ -24,11 +24,11 @@ float Kd = 0;
 float Kc = 0;
 float FF = 0;
 
-float Kpc = 0.00;
-float Kic = 0.00002;
+float Kpc = 0;
+float Kic = 0;
 float Kdc = 0;
-float Kcc = 0.036;
-float FFc = 975;
+float Kcc = 0; 
+float FFc = 0;
 
 float rateLimiter = 100;
 int mode = 0;
