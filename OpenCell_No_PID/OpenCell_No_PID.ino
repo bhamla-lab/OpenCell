@@ -21,6 +21,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo esc;
 int potValue;
 unsigned long lastTime_print = 0;
+float rateLimiter = 0.05;
 
 
 const byte PulsesPerRevolution = 2;  // Set how many pulses there are on each revolution. Default: 2.
@@ -50,6 +51,8 @@ unsigned long readIndex;
 unsigned long total;
 unsigned long average;
 
+
+
 void setup()  // Start of setup:
 {
   pinMode(rightBtn, INPUT_PULLUP);
@@ -62,7 +65,7 @@ void setup()  // Start of setup:
   lcd.backlight();
   lcd.clear();
   esc.attach(motor, 1000, 2000); 
-  esc.write(30);
+  esc.writeMicroseconds(1000);
   delay(1000); 
 
 }  // End of setup.
@@ -88,7 +91,7 @@ void updateLCD(int power, int timeLeft) {
     lcd.print(average);
     lcd.setCursor(9, 1);
     lcd.print("P:");
-    lcd.print(pwr);
+    lcd.print(power);
     Serial.print("Period: ");
     Serial.print(PeriodBetweenPulses);
     Serial.print("\tReadings: ");
@@ -146,26 +149,39 @@ int runHomogenizer(float duration) {
   int timeElapsed = 0;
   int printTime = 0;
   float outputValue = 0;
+  float lastOutput = 1000;
+
+
   while (millis() < endTime) {
+    potValue = analogRead(A3);
+    outputValue = map(potValue, 0, 1023, 1000, 2000);
+    if(outputValue > lastOutput + rateLimiter){
+      outputValue = lastOutput + rateLimiter;
+    }
+    else if(outputValue < lastOutput - rateLimiter){
+      outputValue = lastOutput - rateLimiter;
+    }
+    lastOutput = outputValue;
+    
     if((digitalRead(rightBtn) == 0) || (digitalRead(leftBtn) == 0)){
       esc.writeMicroseconds(0);
       endTime = 0; 
     }
     if(digitalRead(lidSensor) < 1) {
-      esc.write(outputValue);
+      esc.writeMicroseconds(outputValue);
     }
     else{
        esc.writeMicroseconds(0);
        endTime = 0;
     }
-    outputValue = analogRead(A3);
-    outputValue = map(potValue, 0, 1023, 1000, 2000);
+
 
     printTime = (endTime - millis()) / 1000;
     updateLCD(outputValue, printTime);
     checkSpeed();
+    //delay(20);
   }
-  esc.write(0);
+  esc.writeMicroseconds(0);
   lcd.clear();
   lcd.setCursor(2, 0);
   lcd.print("OpenCell Pro");
@@ -204,8 +220,6 @@ int homogenize() {
     }
   }
   delay(1000);
-  confirmTime(runTime);
-  while(digitalRead(rightBtn) ==1){}
 
   //RUN HOMOGENIZER
   runHomogenizer(runTime);
