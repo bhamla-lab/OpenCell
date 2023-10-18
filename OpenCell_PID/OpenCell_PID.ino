@@ -21,7 +21,17 @@
 float Kp = 0;
 float Ki = 0;
 float Kd = 0;
-PID 
+float Kc = 0;
+float FF = 0;
+
+float Kpc = 0.00;
+float Kic = 0.00002;
+float Kdc = 0;
+float Kcc = 0.036;
+float FFc = 975;
+
+float rateLimiter = 100;
+int mode = 0;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo esc;
 int potValue;
@@ -67,7 +77,7 @@ void setup()  // Start of setup:
   lcd.backlight();
   lcd.clear();
   esc.attach(motor, 1000, 2000); 
-  esc.write(30);
+  esc.writeMicroseconds(1000);
   delay(1000); 
 
 }  // End of setup.
@@ -81,7 +91,7 @@ void loop()  // Start of loop:
 
 void updateLCD(int power, int timeLeft) {
   if ((millis() - lastTime_print) >= 500) {
-    int pwr = map(power, 1000, 2000, 0, 100);
+    int pwr = map(power, 1000, 1400, 0, 100);
     lastTime_print = millis();
     lcd.clear();
     lcd.setCursor(0, 0);
@@ -94,21 +104,21 @@ void updateLCD(int power, int timeLeft) {
     lcd.setCursor(9, 1);
     lcd.print("P:");
     lcd.print(pwr);
-    Serial.print("Period: ");
-    Serial.print(PeriodBetweenPulses);
-    Serial.print("\tReadings: ");
-    Serial.print(AmountOfReadings);
-    Serial.print("\tFrequency: ");
-    Serial.print(FrequencyReal);
-    Serial.print("\tRPM: ");
-    Serial.print(RPM);
-    Serial.print("\tTachometer: ");
-    Serial.println(average);
+    // Serial.print("Period: ");
+    // Serial.print(PeriodBetweenPulses);
+    // Serial.print("\tReadings: ");
+    // Serial.print(AmountOfReadings);
+    // Serial.print("\tFrequency: ");
+    // Serial.print(FrequencyReal);
+    // Serial.print("\tRPM: ");
+    // Serial.print(RPM);
+    // Serial.print("\tTachometer: ");
+    // Serial.println(average);
 
   }
 }
 
-int initializeOpenCell() {
+void initializeOpenCell() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("OpenCell");
@@ -117,7 +127,8 @@ int initializeOpenCell() {
   delay(2000);
 }
 
-int startScreen() {
+
+void startScreen() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("OpenCell");
@@ -125,14 +136,22 @@ int startScreen() {
   lcd.print("Press To Start");
 }
 
-int setTime() {
+void modeSelect() {
+  lcd.clear();
+  lcd.setCursor(2,0);
+  lcd.print("Mode Select:");
+  lcd.setCursor(1,1);
+}
+
+
+void setTime() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("Set Time");
   lcd.setCursor(1, 1);
 }
 
-int setSpeed() {
+void setSpeed() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("Set Speed");
@@ -145,8 +164,8 @@ int setSpeed() {
 int runHomogenizer(float duration, float runSpeed) {
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Set Dial To Zero");
-  delay(3000);
+  lcd.print("Starting");
+  delay(1000);
   float msTime = duration * 1000 * 60;
   long startTime = millis();
   long endTime = startTime + msTime;
@@ -157,28 +176,61 @@ int runHomogenizer(float duration, float runSpeed) {
   float deltaError = 0;
   float lastError = 0;
   float outputValue = 0;
+
+  if(mode == 2){
+    Kp = Kpc;
+    Ki = Kic;
+    Kd = Kdc;
+    Kc = Kcc;
+    FF = FFc;
+  }
+  float lastOutput = 1000;
   while (millis() < endTime) {
+
     error = runSpeed - average;
     cumulativeError += error;
+
     deltaError = error - lastError;
     lastError = error;
-    outputValue = Kp*error + Ki*cumulativeError + Kd*deltaError;
+
+    outputValue = Kp*error + Ki*cumulativeError + Kd*deltaError + (runSpeed*Kc + FF);;
+
+    if(outputValue > lastOutput + rateLimiter){
+      outputValue = lastOutput + rateLimiter;
+    }
+    else if(outputValue < lastOutput - rateLimiter){
+      outputValue = lastOutput - rateLimiter;
+    }
+
+    lastOutput = outputValue;
+    Serial.print("error: ");
+    Serial.print(error);
+
+    Serial.print(", CE: ");
+    Serial.print(cumulativeError);
+    
+    Serial.print(", DE: ");
+    Serial.print(deltaError);
+
+
     if(outputValue < 1000) outputValue = 1000;
-    if(outputValue > 2000) outputValue = 2000;
+    if(outputValue > 1400) outputValue = 1400;
+    Serial.print(", Output:");
+    Serial.println(outputValue);
     if((digitalRead(rightBtn) == 0) || (digitalRead(leftBtn) == 0)){
-      esc.write(0);
+      esc.writeMicroseconds(0);
       endTime = 0; 
     }
     if(digitalRead(lidSensor) < 1) {
-      esc.write(outputValue);
+      esc.writeMicroseconds(outputValue);
     }
     else{
        esc.writeMicroseconds(0);
-       endTime = 0;
+       //endTime = 0;
     }
 
     printTime = (endTime - millis()) / 1000;
-    updateLCD(runSpeed, printTime);
+    updateLCD(outputValue, printTime);
     checkSpeed();
   }
   esc.write(0);
@@ -196,6 +248,8 @@ int homogenize() {
   int  pwmOut = 0;
   bool timeSet = false;
   bool speedSet = false;
+  bool modeSet = false;
+
   float runTime;
   float runSpeed;
   
@@ -204,8 +258,34 @@ int homogenize() {
   lcd.setCursor(1, 0);
   initializeOpenCell();
   startScreen();
-  //SET RUN TIME
+
   while (digitalRead(rightBtn) == 1) {}
+
+  //SET MODE
+  modeSelect();
+  delay(1000);
+  while(modeSet == false) {
+    potValue = analogRead(A3);
+    potValue = map(potValue, 0, 1023, 0, 10);
+    if(potValue > 3) {
+      mode = 2;
+      lcd.setCursor(3,1);
+      lcd.print("Centrifuge");
+    }
+    else{
+      mode = 1;
+      lcd.setCursor(3,1);
+      lcd.print("Cell Lysis");
+    }
+
+    if(digitalRead(rightBtn) == 0){
+      modeSet = true;
+    }
+
+  }
+
+  //SET RUN TIME
+
   setTime();
   delay(1000);
   while (timeSet == false) {
@@ -219,7 +299,6 @@ int homogenize() {
       timeSet = true;
     }
   }
-  delay(1000);
 
   //SET RUN SPEED
   delay(1000);
@@ -227,12 +306,11 @@ int homogenize() {
   delay(1000);
   while (speedSet == false) {
     potValue = analogRead(A3);
-    potValue = map(potValue,0,1023, 200, 5000);
-    float speed = potValue / 4.00;
+    if(mode == 2) runSpeed = map(potValue,0,1023, 3500, 7000);
+    if(mode == 1) runSpeed = map(potValue,0,1023, 500, 1250);
     lcd.setCursor(5, 1);
-    lcd.print(speed);
+    lcd.print(runSpeed);
     if (digitalRead(rightBtn) == 0) {
-      runSpeed = speed;
       speedSet = true;
     }
   }
