@@ -211,7 +211,7 @@ int homogenize() {
   while (timeSet == false) {
     potValue = analogRead(A3);
     potValue = map(potValue,0,1023, 0, 80);
-    float timer = potValue / 4.00;
+    float timer = potValue / 8.00;
     lcd.setCursor(5, 1);
     lcd.print(timer);
     if (digitalRead(rightBtn) == 0) {
